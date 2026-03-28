@@ -100,7 +100,7 @@ private:
     void updateCameraVectors() {
         position.x = radius * cos(glm::radians(pitch)) * cos(glm::radians(yaw));
         position.y = radius * sin(glm::radians(pitch));
-        position.x = radius * cos(glm::radians(pitch)) * sin(glm::radians(yaw));
+        position.z = radius * cos(glm::radians(pitch)) * sin(glm::radians(yaw));
 
         front = glm::normalize(glm::vec3(0.0f) - position);
         // also re-calculate the Right and Up vector

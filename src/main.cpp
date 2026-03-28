@@ -3,13 +3,12 @@
 #include "visualization/vis.h"
 
 int main() {
-    Particles p{1};
+    Particles p{5};
 
-    p.x[0] = 0;
-    p.y[0] = 0;
-    p.z[0] = 0;
+    p.initParticlesRandomly(2, -2, 2, -2, 2, -2);
 
     Simulation sim{p};
+    sim.setBoundaries(2, -2, 2, -2, 2, -2);
     Camera camera{};
     Visualization v{camera, 800, 600};
 
