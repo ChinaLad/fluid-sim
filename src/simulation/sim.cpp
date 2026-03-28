@@ -6,41 +6,158 @@ void Simulation::applyForces() {
 }
 
 void Simulation::applyGravity() {
-    /**
-     * TODO:
-     * - reorder writes and read for more ILP
-     * - unroll
-     * - vectorize
-     */
+    const __m256 time_vec = _mm256_set1_ps(TIME_DELTA);
+    const __m256 gravity_vec = _mm256_set1_ps(-GRAVITY);
 
-    for (int p = 0; p < particles.n_particles; p++) {
+    int p = 0;
+    for (; p+8 <= particles.n_particles; p+=8) {
+        __m256 vy_p_vec = _mm256_load_ps(&particles.vy[p]);
+        vy_p_vec = _mm256_fmadd_ps(time_vec, gravity_vec, vy_p_vec);
+        _mm256_store_ps(&particles.vy[p], vy_p_vec);
+    }
+
+    for (; p < particles.n_particles; p++) {
         particles.vy[p] -= GRAVITY * TIME_DELTA;
     }
 }
 
 void Simulation::updatePositions() {
-    for (int p = 0; p < particles.n_particles; p++) {
-        float x_p_new = particles.x[p] + particles.vx[p] * TIME_DELTA;
-        if (x_p_new >= x_pos_border) particles.x[p] = x_pos_border;
-        else if (x_p_new <= x_neg_border) particles.x[p] = x_neg_border;
-        else particles.x[p] = x_p_new;
-    }
-    for (int p = 0; p < particles.n_particles; p++) {
-        float y_p_new = particles.y[p] + particles.vy[p] * TIME_DELTA;
-        if (y_p_new >= y_pos_border) particles.y[p] = y_pos_border;
-        else if (y_p_new <= y_neg_border) particles.y[p] = y_neg_border;
-        else particles.y[p] = y_p_new;
-    }
-    for (int p = 0; p < particles.n_particles; p++) {
-        float z_p_new = particles.z[p] + particles.vz[p] * TIME_DELTA;
-        if (z_p_new >= z_pos_border) particles.z[p] = z_pos_border;
-        else if (z_p_new <= z_neg_border) particles.z[p] = z_neg_border;
-        else particles.z[p] = z_p_new;
+    const __m256 time_vec = _mm256_set1_ps(TIME_DELTA);
+    const __m256 bounce_vec = _mm256_set1_ps(-BOUNCE_COEF);
+
+    const __m256 x_pos_vec = _mm256_set1_ps(x_pos_border);
+    const __m256 x_neg_vec = _mm256_set1_ps(x_neg_border);
+
+    int p = 0;
+
+    for (; p+8 <= particles.n_particles; p+=8) {
+        __m256 x_p_vec = _mm256_load_ps(&particles.x[p]);
+        __m256 vx_p_vec = _mm256_load_ps(&particles.vx[p]);
+        x_p_vec = _mm256_fmadd_ps(vx_p_vec, time_vec, x_p_vec);
+
+        // x out of positive boundary
+        __m256 out_pos_vec = _mm256_cmp_ps(x_p_vec, x_pos_vec, _CMP_GE_OQ);
+        x_p_vec = _mm256_or_ps(_mm256_and_ps(out_pos_vec, x_pos_vec), _mm256_andnot_ps(out_pos_vec, x_p_vec));
+
+        // x out of negative boundary
+        __m256 out_neg_vec = _mm256_cmp_ps(x_p_vec, x_neg_vec, _CMP_LE_OQ);
+        x_p_vec = _mm256_or_ps(_mm256_and_ps(out_neg_vec, x_neg_vec), _mm256_andnot_ps(out_neg_vec, x_p_vec));
+
+        // bounce from borders
+        __m256 invert_v_mask = _mm256_or_ps(out_pos_vec, out_neg_vec);
+        vx_p_vec = _mm256_blendv_ps(vx_p_vec, _mm256_mul_ps(vx_p_vec, bounce_vec), invert_v_mask);
+
+        _mm256_store_ps(&particles.x[p], x_p_vec);
+        _mm256_store_ps(&particles.vx[p], vx_p_vec);
     }
 
-    for (int p = 0; p < particles.n_particles; p++) {
-        std::cout << "x: " << particles.x[p]
-        << " y: " << particles.y[p]
-        <<" z: " << particles.z[p] << std::endl;
+    for (; p < particles.n_particles; p++) {
+        float x_p = particles.x[p];
+        float vx_p = particles.vx[p];
+
+        float x_p_new = x_p + vx_p * TIME_DELTA;
+        if (x_p_new >= x_pos_border) {
+            x_p_new = x_pos_border;
+            vx_p = -vx_p * BOUNCE_COEF;
+        }
+        else if (x_p_new <= x_neg_border) {
+            x_p_new = x_neg_border;
+            vx_p = -vx_p * BOUNCE_COEF;
+        }
+
+        particles.x[p] = x_p_new;
+        particles.vx[p] = vx_p;
     }
+
+    p = 0;
+
+    __m256 y_pos_vec = _mm256_set1_ps(y_pos_border);
+    __m256 y_neg_vec = _mm256_set1_ps(y_neg_border);
+    for (; p+8 <= particles.n_particles; p+=8) {
+        __m256 y_p_vec = _mm256_load_ps(&particles.y[p]);
+        __m256 vy_p_vec = _mm256_load_ps(&particles.vy[p]);
+        y_p_vec = _mm256_fmadd_ps(vy_p_vec, time_vec, y_p_vec);
+
+        // y out of positive boundary
+        __m256 out_pos_vec = _mm256_cmp_ps(y_p_vec, y_pos_vec, _CMP_GE_OQ);
+        y_p_vec = _mm256_or_ps(_mm256_and_ps(out_pos_vec, y_pos_vec), _mm256_andnot_ps(out_pos_vec, y_p_vec));
+
+        // y out of negative boundary
+        __m256 out_neg_vec = _mm256_cmp_ps(y_p_vec, y_neg_vec, _CMP_LE_OQ);
+        y_p_vec = _mm256_or_ps(_mm256_and_ps(out_neg_vec, y_neg_vec), _mm256_andnot_ps(out_neg_vec, y_p_vec));
+
+        // bounce from borders
+        __m256 invert_v_mask = _mm256_or_ps(out_pos_vec, out_neg_vec);
+        vy_p_vec = _mm256_blendv_ps(vy_p_vec, _mm256_mul_ps(vy_p_vec, bounce_vec), invert_v_mask);
+
+        _mm256_store_ps(&particles.y[p], y_p_vec);
+        _mm256_store_ps(&particles.vy[p], vy_p_vec);
+    }
+
+    for (; p < particles.n_particles; p++) {
+        float y_p = particles.y[p];
+        float vy_p = particles.vy[p];
+
+        float y_p_new = y_p + vy_p * TIME_DELTA;
+        if (y_p_new >= y_pos_border) {
+            y_p_new = y_pos_border;
+            vy_p = -vy_p * BOUNCE_COEF;
+        }
+        else if (y_p_new <= y_neg_border) {
+            y_p_new = y_neg_border;
+            vy_p = -vy_p * BOUNCE_COEF;
+        }
+
+        particles.y[p] = y_p_new;
+        particles.vy[p] = vy_p;
+    }
+
+    p = 0;
+
+    __m256 z_pos_vec = _mm256_set1_ps(z_pos_border);
+    __m256 z_neg_vec = _mm256_set1_ps(z_neg_border);
+    for (; p+8 <= particles.n_particles; p+=8) {
+        __m256 z_p_vec = _mm256_load_ps(&particles.z[p]);
+        __m256 vz_p_vec = _mm256_load_ps(&particles.vz[p]);
+        z_p_vec = _mm256_fmadd_ps(vz_p_vec, time_vec, z_p_vec);
+
+        // z out of positive boundary
+        __m256 out_pos_vec = _mm256_cmp_ps(z_p_vec, z_pos_vec, _CMP_GE_OQ);
+        z_p_vec = _mm256_or_ps(_mm256_and_ps(out_pos_vec, z_pos_vec), _mm256_andnot_ps(out_pos_vec, z_p_vec));
+
+        // z out of negative boundary
+        __m256 out_neg_vec = _mm256_cmp_ps(z_p_vec, y_neg_vec, _CMP_LE_OQ);
+        z_p_vec = _mm256_or_ps(_mm256_and_ps(out_neg_vec, z_neg_vec), _mm256_andnot_ps(out_neg_vec, z_p_vec));
+
+        // bounce from borders
+        __m256 invert_v_mask = _mm256_or_ps(out_pos_vec, out_neg_vec);
+        vz_p_vec = _mm256_blendv_ps(vz_p_vec, _mm256_mul_ps(vz_p_vec, bounce_vec), invert_v_mask);
+
+        _mm256_store_ps(&particles.z[p], z_p_vec);
+        _mm256_store_ps(&particles.vz[p], vz_p_vec);
+    }
+
+    for (; p < particles.n_particles; p++) {
+        float z_p = particles.z[p];
+        float vz_p = particles.vy[p];
+
+        float z_p_new = z_p + vz_p * TIME_DELTA;
+        if (z_p_new >= z_pos_border) {
+            z_p_new = z_pos_border;
+            vz_p = -vz_p * BOUNCE_COEF;
+        }
+        else if (z_p_new <= z_neg_border) {
+            z_p_new = z_neg_border;
+            vz_p = -vz_p * BOUNCE_COEF;
+        }
+
+        particles.z[p] = z_p_new;
+        particles.vz[p] = vz_p;
+    }
+
+    // for (p = 0; p < particles.n_particles; p++) {
+    //     std::cout << "x: " << particles.x[p]
+    //     << " y: " << particles.y[p]
+    //     <<" z: " << particles.z[p] << std::endl;
+    // }
 }

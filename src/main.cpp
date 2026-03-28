@@ -3,7 +3,7 @@
 #include "visualization/vis.h"
 
 int main() {
-    Particles p{5};
+    Particles p{4000};
 
     p.initParticlesRandomly(2, -2, 2, -2, 2, -2);
 
@@ -14,6 +14,7 @@ int main() {
 
     sim.updatePositions();
     v.updateParticles(p);
+    v.render(p.n_particles);
     while (!v.shouldClose()) {
         v.processInput(TIME_DELTA);
         sim.applyForces();
