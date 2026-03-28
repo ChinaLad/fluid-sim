@@ -34,6 +34,8 @@ bool Visualization::initWindow(int width, int height) {
     glfwSetScrollCallback(window, scroll_callback);
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     return true;
 }
 
@@ -56,8 +58,13 @@ void Visualization::setupGeometry() {
     // instance positions
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)0);
     glVertexAttribDivisor(1, 1);
+
+    // instance colors
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, 7 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribDivisor(2, 1);
 
     glBindVertexArray(0);
 }
@@ -88,11 +95,16 @@ void Visualization::processInput(float deltaTime) {
 }
 
 void Visualization::updateParticles(const Particles& p) {
-    instanceBuffer.resize(p.n_particles * 3);
+    instanceBuffer.resize(p.n_particles * 7);
     for (int i = 0; i < p.n_particles; ++i) {
-        instanceBuffer[i*3 + 0] = p.x[i];
-        instanceBuffer[i*3 + 1] = p.y[i];
-        instanceBuffer[i*3 + 2] = p.z[i];
+        instanceBuffer[i*7 + 0] = p.x[i];
+        instanceBuffer[i*7 + 1] = p.y[i];
+        instanceBuffer[i*7 + 2] = p.z[i];
+
+        instanceBuffer[i*7 + 3] = p.r[i];
+        instanceBuffer[i*7 + 4] = p.g[i];
+        instanceBuffer[i*7 + 5] = p.b[i];
+        instanceBuffer[i*7 + 6] = p.a[i];
     }
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glBufferData(GL_ARRAY_BUFFER, instanceBuffer.size() * sizeof(float), instanceBuffer.data(), GL_DYNAMIC_DRAW);

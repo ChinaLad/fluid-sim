@@ -6,6 +6,16 @@
 
 #include <iostream>
 
+struct ForceProfile {
+    float inv_sq_strength;
+
+    float opt_dist;
+    float bond_strength;
+    float max_radius;
+};
+
+inline ForceProfile interaction_matrix[NUM_PARTICLE_TYPES][NUM_PARTICLE_TYPES];
+
 class Simulation {
 public:
     Particles particles;
@@ -30,5 +40,7 @@ public:
     void applyRepulsion();
 
     void updatePositions();
+
+    void loadForceProfile(const std::string& filepath);
 };
 #endif //FLUID_SIM_SIM_H

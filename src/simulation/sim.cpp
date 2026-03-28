@@ -1,8 +1,12 @@
 #include "sim.h"
 #include <immintrin.h>
+#include <fstream>
+#include <sstream>
+#include <iostream>
 
 void Simulation::applyForces() {
-    applyGravity();
+    //applyGravity();
+    applyAttraction();
 }
 
 void Simulation::applyGravity() {
@@ -19,6 +23,93 @@ void Simulation::applyGravity() {
     for (; p < particles.n_particles; p++) {
         particles.vy[p] -= GRAVITY * TIME_DELTA;
     }
+}
+
+void Simulation::applyAttraction() {
+    for (int p = 0; p < particles.n_particles; p++) {
+        particles.fx[p] = 0.0f;
+        particles.fy[p] = 0.0f;
+        particles.fz[p] = 0.0f;
+    }
+
+    for (int p = 0; p < particles.n_particles; p++) {
+        int type_p = particles.p_type[p];
+        float x_p = particles.x[p];
+        float y_p = particles.y[p];
+        float z_p = particles.z[p];
+
+        float mass_p = particles.masses[p];
+        for (int q = p + 1; q < particles.n_particles; q++) {
+            int type_q = particles.p_type[q];
+            float x_q = particles.x[q];
+            float y_q = particles.y[q];
+            float z_q = particles.z[q];
+
+            float mass_q = particles.masses[q];
+
+            const ForceProfile& profile = interaction_matrix[type_p][type_q];
+
+            float dx = x_p - x_q;
+            float dy = y_p - y_q;
+            float dz = z_p - z_q;
+
+            float dist_sq = dx*dx + dy*dy + dz*dz;
+
+            if (dist_sq > profile.max_radius * profile.max_radius || dist_sq <= 0.00001f) continue;
+
+            float dist = std::sqrt(dist_sq);
+            float dist_inv = 1.0f/dist;
+            float force = 0.0f;
+
+            // macro: gravitational attraction
+            if (profile.inv_sq_strength != 0.0f) {
+                float safe_dist = std::max(dist, 0.05f);
+                force -= (profile.inv_sq_strength * mass_p * mass_q) / (safe_dist * safe_dist);
+            }
+
+            //micro: Lenard-Jones
+            if (profile.bond_strength != 0.0f) {
+                float ratio = profile.opt_dist * dist_inv;
+                float ratio2 = ratio * ratio;
+                float ratio6 = ratio2 * ratio2 * ratio2;
+                float ratio12 = ratio6 * ratio6;
+
+                force += profile.bond_strength * (ratio12 - ratio6);
+            }
+
+            // find force direction
+            float nx = dx * dist_inv;
+            float ny = dy * dist_inv;
+            float nz = dz * dist_inv;
+
+            float fx = nx * force;
+            float fy = ny * force;
+            float fz = nz * force;
+
+            // apply to p
+            particles.fx[p] += fx;
+            particles.fy[p] += fy;
+            particles.fz[p] += fz;
+
+            // apply to q
+            particles.fx[q] -= fx;
+            particles.fy[q] -= fy;
+            particles.fz[q] -= fz;
+        }
+    }
+
+    constexpr float DRAG = 0.98f;
+    for(int p = 0; p < particles.n_particles; p++) {
+        float mass_inv = particles.masses_inv[p]; // Multiplication is faster than division
+
+        particles.vx[p] = (particles.vx[p] + (particles.fx[p] * mass_inv) * TIME_DELTA) * DRAG;
+        particles.vy[p] = (particles.vy[p] + (particles.fy[p] * mass_inv) * TIME_DELTA) * DRAG;
+        particles.vz[p] = (particles.vz[p] + (particles.fz[p] * mass_inv) * TIME_DELTA) * DRAG;
+    }
+}
+
+void Simulation::applyRepulsion() {
+
 }
 
 void Simulation::updatePositions() {
@@ -154,10 +245,33 @@ void Simulation::updatePositions() {
         particles.z[p] = z_p_new;
         particles.vz[p] = vz_p;
     }
+}
 
-    // for (p = 0; p < particles.n_particles; p++) {
-    //     std::cout << "x: " << particles.x[p]
-    //     << " y: " << particles.y[p]
-    //     <<" z: " << particles.z[p] << std::endl;
-    // }
+void Simulation::loadForceProfile(const std::string &filepath) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open preset: " << filepath << std::endl;
+        return;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        // Skip empty lines and comments
+        if (line.empty() || line[0] == '#') continue;
+
+        std::istringstream iss(line);
+        int type1, type2;
+        ForceProfile profile;
+
+        // Read the values from the line
+        if (iss >> type1 >> type2 >> profile.inv_sq_strength >> profile.opt_dist >> profile.bond_strength >> profile.max_radius) {
+
+            // Assign to the matrix
+            interaction_matrix[type1][type2] = profile;
+
+            // Optional: Make it symmetric so A->B is the same as B->A
+            interaction_matrix[type2][type1] = profile;
+                }
+    }
+    std::cout << "Loaded preset: " << filepath << std::endl;
 }
