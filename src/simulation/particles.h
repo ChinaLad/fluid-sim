@@ -2,6 +2,7 @@
 #define FLUID_SIM_PARTICLES_H
 #include <cstdlib>
 #include <random>
+#include <new>
 
 class Particles {
 public:
@@ -30,13 +31,13 @@ public:
     }
     Particles(const int n) {
         this->n_particles = n;
-        x = new float[n];
-        y = new float[n];
-        z = new float[n];
-        vx = new float[n]{};
-        vy = new float[n]{};
-        vz = new float[n]{};
-        masses = new float[n];
+        x = new (std::align_val_t(32)) float[n];
+        y = new (std::align_val_t(32)) float[n];
+        z = new (std::align_val_t(32)) float[n];
+        vx = new (std::align_val_t(32)) float[n]{};
+        vy = new (std::align_val_t(32)) float[n]{};
+        vz = new (std::align_val_t(32)) float[n]{};
+        masses = new (std::align_val_t(32)) float[n];
     }
     ~Particles()= default;
 
