@@ -25,6 +25,7 @@ public:
     float* fz;
 
     float* masses;
+    float* masses_inv;
 
     // arrays of color values
     float* r;
@@ -46,6 +47,7 @@ public:
         fy = nullptr;
         fz = nullptr;
         masses = nullptr;
+        masses_inv = nullptr;
         r = nullptr;
         g = nullptr;
         b = nullptr;
@@ -64,6 +66,7 @@ public:
         fy = new (std::align_val_t(32)) float[n]{};
         fz = new (std::align_val_t(32)) float[n]{};
         masses = new (std::align_val_t(32)) float[n];
+        masses_inv = new (std::align_val_t(32)) float[n];
         r = new (std::align_val_t(32)) float[n];
         g = new (std::align_val_t(32)) float[n];
         b = new (std::align_val_t(32)) float[n];
@@ -98,7 +101,9 @@ public:
             fy[i] = 0.0f;
             fz[i] = 0.0f;
 
-            masses[i] = 1.0f;
+            float m = 1.0f;
+            masses[i] = m;
+            masses_inv[i] = 1/m;
 
             r[i] = 0.0f;
             g[i] = 0.0f;
