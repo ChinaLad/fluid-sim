@@ -6,6 +6,9 @@
 
 class Particles {
 public:
+    // array of particle types
+    int* p_type;
+
     // arrays of coordinate components
     float* x;
     float* y;
@@ -16,28 +19,55 @@ public:
     float* vy;
     float* vz;
 
+    // arrays of force components
+    float* fx;
+    float* fy;
+    float* fz;
+
     float* masses;
+
+    // arrays of color values
+    float* r;
+    float* g;
+    float* b;
+    float* a;
 
     int n_particles{};
 
     Particles() {
+        p_type = nullptr;
         x = nullptr;
         y = nullptr;
         z = nullptr;
         vx = nullptr;
         vy = nullptr;
         vz = nullptr;
+        fx = nullptr;
+        fy = nullptr;
+        fz = nullptr;
         masses = nullptr;
+        r = nullptr;
+        g = nullptr;
+        b = nullptr;
+        a = nullptr;
     }
     Particles(const int n) {
         this->n_particles = n;
+        p_type = new int[n];
         x = new (std::align_val_t(32)) float[n];
         y = new (std::align_val_t(32)) float[n];
         z = new (std::align_val_t(32)) float[n];
         vx = new (std::align_val_t(32)) float[n]{};
         vy = new (std::align_val_t(32)) float[n]{};
         vz = new (std::align_val_t(32)) float[n]{};
+        fx = new (std::align_val_t(32)) float[n]{};
+        fy = new (std::align_val_t(32)) float[n]{};
+        fz = new (std::align_val_t(32)) float[n]{};
         masses = new (std::align_val_t(32)) float[n];
+        r = new (std::align_val_t(32)) float[n];
+        g = new (std::align_val_t(32)) float[n];
+        b = new (std::align_val_t(32)) float[n];
+        a = new (std::align_val_t(32)) float[n];
     }
     ~Particles()= default;
 
@@ -53,6 +83,8 @@ public:
         std::uniform_real_distribution<float> distZ(z_neg_border, z_pos_border);
 
         for (int i = 0; i < n_particles; i++) {
+            p_type[i] = 0;
+
             x[i] = distX(gen);
             y[i] = distY(gen);
             z[i] = distZ(gen);
@@ -61,6 +93,17 @@ public:
             vx[i] = 0.0f;
             vy[i] = 0.0f;
             vz[i] = 0.0f;
+
+            fx[i] = 0.0f;
+            fy[i] = 0.0f;
+            fz[i] = 0.0f;
+
+            masses[i] = 1.0f;
+
+            r[i] = 0.0f;
+            g[i] = 0.0f;
+            b[i] = 1.0f;
+            a[i] = 1.0f;
         }
     }
 };

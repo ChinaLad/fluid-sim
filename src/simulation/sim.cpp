@@ -1,5 +1,8 @@
 #include "sim.h"
 #include <immintrin.h>
+#include <fstream>
+#include <sstream>
+#include <iostream>
 
 void Simulation::applyForces() {
     applyGravity();
@@ -19,6 +22,33 @@ void Simulation::applyGravity() {
     for (; p < particles.n_particles; p++) {
         particles.vy[p] -= GRAVITY * TIME_DELTA;
     }
+}
+
+void Simulation::applyAttraction() {
+    for (int p = 0; p < particles.n_particles; p++) {
+        float x_p = particles.x[p];
+        float y_p = particles.y[p];
+        float z_p = particles.z[p];
+
+        float vx_p = particles.vx[p];
+        float vy_p = particles.vy[p];
+        float vz_p = particles.vz[p];
+        for (int q = p + 1; q < particles.n_particles; q++) {
+            float x_q = particles.x[q];
+            float y_q = particles.y[q];
+            float z_q = particles.z[q];
+
+            float vx_q = particles.vx[q];
+            float vy_q = particles.vy[q];
+            float vz_q = particles.vz[q];
+
+            float dist_sq = (x_p - x_q) * (x_p - x_q) + (y_p - y_q) * (y_p - y_q) + (z_p - z_q) * (z_p - z_q);
+        }
+    }
+}
+
+void Simulation::applyRepulsion() {
+
 }
 
 void Simulation::updatePositions() {
@@ -154,10 +184,33 @@ void Simulation::updatePositions() {
         particles.z[p] = z_p_new;
         particles.vz[p] = vz_p;
     }
+}
 
-    // for (p = 0; p < particles.n_particles; p++) {
-    //     std::cout << "x: " << particles.x[p]
-    //     << " y: " << particles.y[p]
-    //     <<" z: " << particles.z[p] << std::endl;
-    // }
+void Simulation::loadForceProfile(const std::string &filepath) {
+    std::ifstream file(filepath);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open preset: " << filepath << std::endl;
+        return;
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        // Skip empty lines and comments
+        if (line.empty() || line[0] == '#') continue;
+
+        std::istringstream iss(line);
+        int type1, type2;
+        ForceProfile profile;
+
+        // Read the values from the line
+        if (iss >> type1 >> type2 >> profile.inv_sq_strength >> profile.opt_dist >> profile.bond_strength >> profile.max_radius) {
+
+            // Assign to the matrix
+            interaction_matrix[type1][type2] = profile;
+
+            // Optional: Make it symmetric so A->B is the same as B->A
+            interaction_matrix[type2][type1] = profile;
+                }
+    }
+    std::cout << "Loaded preset: " << filepath << std::endl;
 }

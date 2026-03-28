@@ -3,14 +3,15 @@
 #include "visualization/vis.h"
 
 int main() {
-    Particles p{4000};
+    Particles p{40};
 
     p.initParticlesRandomly(2, -2, 2, -2, 2, -2);
 
     Simulation sim{p};
+    sim.loadForceProfile("presets/simple.txt");
     sim.setBoundaries(2, -2, 2, -2, 2, -2);
     Camera camera{};
-    Visualization v{camera, 800, 600};
+    Visualization v{camera, 1000, 1000};
 
     sim.updatePositions();
     v.updateParticles(p);
