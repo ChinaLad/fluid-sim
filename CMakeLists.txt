@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 4.2)
-project(fluid_sim CXX)
+project(fluid_sim C CXX)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -24,6 +24,8 @@ add_executable(fluid_sim
         src/simulation/sim.cpp
         src/simulation/sim.h
         src/simulation/params.h
+        src/visualization/vis.cpp
+        src/visualization/vis.h
 )
 
 target_link_libraries(fluid_sim

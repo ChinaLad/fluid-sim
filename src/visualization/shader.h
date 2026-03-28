@@ -2,7 +2,7 @@
 #define FLUID_SIM_SHADER_H
 
 #pragma once
-#include "include/glad/gl.h"
+#include "../cmake-build-debug/include/glad/gl.h"
 #include <glm/glm.hpp>
 
 #include <string>
