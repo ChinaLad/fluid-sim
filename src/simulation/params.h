@@ -7,6 +7,6 @@ constexpr float BOUNCE_COEF = 0.3f;
 constexpr float TIME_DELTA = 0.016f;
 constexpr int SUB_STEPS = 5;
 
-constexpr int NUM_PARTICLE_TYPES = 2;
+constexpr int NUM_PARTICLE_TYPES = 3;
 
 #endif //FLUID_SIM_PARAMS_H

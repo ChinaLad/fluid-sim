@@ -1,5 +1,4 @@
 #include "sim.h"
-#include <immintrin.h>
 #include <algorithm>
 #include <cstring>
 #include <vector>
@@ -346,10 +345,6 @@ void Simulation::applyAttraction() {
     }
 }
 
-void Simulation::applyRepulsion() {
-
-}
-
 void Simulation::updatePositions() {
     const __m256 time_vec = _mm256_set1_ps(TIME_DELTA);
     const __m256 bounce_vec = _mm256_set1_ps(-BOUNCE_COEF);
@@ -530,7 +525,6 @@ void Simulation::computeMacro() {
         float scalar_fy = 0.0f;
         float scalar_fz = 0.0f;
 
-        // loop over the 3x3x3 neighboring cells (including its own cell)
         for (int dz = -1; dz <= 1; dz++) {
             for (int dy = -1; dy <= 1; dy++) {
                 for (int dx = -1; dx <= 1; dx++) {
@@ -602,7 +596,6 @@ void Simulation::computeMacro() {
 
                         __m256 force_vec = zero;
 
-                        // macro: gravity
                         __m256 skip_macro_vec = _mm256_cmp_ps(inv_sq_strength_vec, zero, _CMP_EQ_OQ);
 
                         __m256 safe_dist_vec = _mm256_max_ps(dist_vec, min_safe_dist);
@@ -643,13 +636,11 @@ void Simulation::computeMacro() {
                         float dist_inv = 1.0f / dist;
                         float force = 0.0f;
 
-                        // macro: gravity
                         if (profile.inv_sq_strength != 0.0f) {
                             float safe_dist = std::max(dist, 0.05f);
                             force -= (profile.inv_sq_strength * mass_p * particles.masses[q]) / (safe_dist * safe_dist);
                         }
 
-                        // apply force only to P
                         scalar_fx += (dist_x * dist_inv) * force;
                         scalar_fy += (dist_y * dist_inv) * force;
                         scalar_fz += (dist_z * dist_inv) * force;
@@ -672,48 +663,9 @@ void Simulation::computeMacro() {
             scalar_fz += f_z_arr[i];
         }
 
-        // Finally, write to memory exactly once per particle
         particles.fx[p] = scalar_fx;
         particles.fy[p] = scalar_fy;
         particles.fz[p] = scalar_fz;
-    }
-
-    // integrate velocities
-    constexpr float DRAG = 1.0f;
-    __m256 drag_vec = _mm256_set1_ps(DRAG);
-    __m256 time_delta_vec = _mm256_set1_ps(TIME_DELTA);
-
-    int p = 0;
-    for(; p+8 <= particles.n_particles; p+=8) {
-        __m256 vx_p_vec = _mm256_load_ps(&particles.vx[p]);
-        __m256 vy_p_vec = _mm256_load_ps(&particles.vy[p]);
-        __m256 vz_p_vec = _mm256_load_ps(&particles.vz[p]);
-
-        __m256 fx_p_vec = _mm256_load_ps(&particles.fx[p]);
-        __m256 fy_p_vec = _mm256_load_ps(&particles.fy[p]);
-        __m256 fz_p_vec = _mm256_load_ps(&particles.fz[p]);
-
-        __m256 mas_inv_vec = _mm256_load_ps(&particles.masses_inv[p]);
-        __m256 temp = _mm256_mul_ps(time_delta_vec, mas_inv_vec);
-
-        vx_p_vec = _mm256_fmadd_ps(fx_p_vec, temp, vx_p_vec);
-        vy_p_vec = _mm256_fmadd_ps(fy_p_vec, temp, vy_p_vec);
-        vz_p_vec = _mm256_fmadd_ps(fz_p_vec, temp, vz_p_vec);
-
-        vx_p_vec = _mm256_mul_ps(drag_vec, vx_p_vec);
-        vy_p_vec = _mm256_mul_ps(drag_vec, vy_p_vec);
-        vz_p_vec = _mm256_mul_ps(drag_vec, vz_p_vec);
-
-        _mm256_store_ps(&particles.vx[p], vx_p_vec);
-        _mm256_store_ps(&particles.vy[p], vy_p_vec);
-        _mm256_store_ps(&particles.vz[p], vz_p_vec);
-    }
-
-    for(; p < particles.n_particles; p++) {
-        float mass_inv = particles.masses_inv[p];
-        particles.vx[p] = (particles.vx[p] + (particles.fx[p] * mass_inv) * TIME_DELTA) * DRAG;
-        particles.vy[p] = (particles.vy[p] + (particles.fy[p] * mass_inv) * TIME_DELTA) * DRAG;
-        particles.vz[p] = (particles.vz[p] + (particles.fz[p] * mass_inv) * TIME_DELTA) * DRAG;
     }
 }
 
@@ -732,7 +684,6 @@ void Simulation::computeMicro() {
         __m256 y_p_vec = _mm256_set1_ps(particles.y[p]);
         __m256 z_p_vec = _mm256_set1_ps(particles.z[p]);
 
-        // NEW: Load the charge for particle P
         __m256 q_p_vec = _mm256_set1_ps(particles.charges[p]);
 
         int cx = std::clamp((int)((particles.x[p] - x_neg_border) / cell_size), 0, grid_width - 1);
@@ -757,10 +708,8 @@ void Simulation::computeMicro() {
                         __m256 y_q_vec = _mm256_load_ps(&particles.y[q]);
                         __m256 z_q_vec = _mm256_load_ps(&particles.z[q]);
 
-                        // NEW: Load the 8 charges for the Q particles
                         __m256 q_q_vec = _mm256_load_ps(&particles.charges[q]);
 
-                        // Fetch profiles (same exact setup as before)
                         int t0 = particles.p_type[q + 0], t1 = particles.p_type[q + 1];
                         int t2 = particles.p_type[q + 2], t3 = particles.p_type[q + 3];
                         int t4 = particles.p_type[q + 4], t5 = particles.p_type[q + 5];
@@ -774,7 +723,6 @@ void Simulation::computeMicro() {
                         );
                         __m256 max_rad_sq = _mm256_mul_ps(max_rad_vec, max_rad_vec);
 
-                        // inv_sq_strength now acts as Coulomb's constant (k)
                         __m256 k_vec = _mm256_setr_ps(
                             interaction_matrix[type_p][t0].inv_sq_strength, interaction_matrix[type_p][t1].inv_sq_strength,
                             interaction_matrix[type_p][t2].inv_sq_strength, interaction_matrix[type_p][t3].inv_sq_strength,
@@ -815,8 +763,6 @@ void Simulation::computeMicro() {
                         __m256 safe_dist_sq = _mm256_mul_ps(safe_dist, safe_dist);
 
                         __m256 force_vec = zero;
-
-                        // 1. ELECTROSTATICS (Coulomb Force)
                         __m256 skip_coulomb = _mm256_cmp_ps(k_vec, zero, _CMP_EQ_OQ);
                         __m256 charge_prod = _mm256_mul_ps(q_p_vec, q_q_vec);
                         __m256 coulomb_num = _mm256_mul_ps(k_vec, charge_prod);
@@ -825,7 +771,6 @@ void Simulation::computeMicro() {
                         coulomb_force = _mm256_blendv_ps(coulomb_force, zero, skip_coulomb);
                         force_vec = _mm256_add_ps(force_vec, coulomb_force);
 
-                        // 2. HARD SHELL (Lennard-Jones)
                         __m256 skip_lj = _mm256_cmp_ps(bond_strength_vec, zero, _CMP_EQ_OQ);
                         __m256 ratio = _mm256_mul_ps(opt_dist_vec, dist_inv);
                         __m256 ratio2 = _mm256_mul_ps(ratio, ratio);
@@ -837,7 +782,6 @@ void Simulation::computeMicro() {
 
                         force_vec = _mm256_add_ps(force_vec, lj_force);
 
-                        // Accumulate
                         __m256 force_mult = _mm256_mul_ps(force_vec, dist_inv);
                         force_mult = _mm256_blendv_ps(force_mult, zero, skip_mask);
 
@@ -846,7 +790,6 @@ void Simulation::computeMicro() {
                         fz_acc = _mm256_fmadd_ps(dist_z, force_mult, fz_acc);
                     }
 
-                    // --- SCALAR TAIL LOOP ---
                     for (; q < end_idx; q++) {
                         if (p == q) continue;
 
@@ -864,13 +807,11 @@ void Simulation::computeMicro() {
                         float dist_inv = 1.0f / dist;
                         float force = 0.0f;
 
-                        // Electrostatics
                         if (profile.inv_sq_strength != 0.0f) {
                             float safe_dist = std::max(dist, 0.05f);
                             force += (profile.inv_sq_strength * particles.charges[p] * particles.charges[q]) / (safe_dist * safe_dist);
                         }
 
-                        // Hard shell
                         if (profile.bond_strength != 0.0f) {
                             float ratio = profile.opt_dist * dist_inv;
                             float ratio2 = ratio * ratio;
@@ -908,4 +849,128 @@ void Simulation::computeMicro() {
 }
 
 void Simulation::computeSubatomic() {
+    __m256 small_dist = _mm256_set1_ps(0.00001f);
+    __m256 zero = _mm256_setzero_ps();
+    __m256 ones = _mm256_set1_ps(1.0f);
+
+    #pragma omp parallel for schedule(dynamic, 64)
+    for (int p = 0; p < particles.n_particles; p++) {
+        int type_p = particles.p_type[p];
+        __m256 x_p_vec = _mm256_set1_ps(particles.x[p]);
+        __m256 y_p_vec = _mm256_set1_ps(particles.y[p]);
+        __m256 z_p_vec = _mm256_set1_ps(particles.z[p]);
+
+        int cx = std::clamp((int)((particles.x[p] - x_neg_border) / cell_size), 0, grid_width - 1);
+        int cy = std::clamp((int)((particles.y[p] - y_neg_border) / cell_size), 0, grid_height - 1);
+        int cz = std::clamp((int)((particles.z[p] - z_neg_border) / cell_size), 0, grid_depth - 1);
+
+        __m256 fx_acc = zero, fy_acc = zero, fz_acc = zero;
+        float scalar_fx = 0.0f, scalar_fy = 0.0f, scalar_fz = 0.0f;
+
+        for (int dz = -1; dz <= 1; dz++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    int nx = cx + dx, ny = cy + dy, nz = cz + dz;
+                    if (nx < 0 || nx >= grid_width || ny < 0 || ny >= grid_height || nz < 0 || nz >= grid_depth) continue;
+
+                    int neighbor_cell = nx + (ny * grid_width) + (nz * grid_width * grid_height);
+                    int q = cell_start[neighbor_cell];
+                    int end_idx = cell_end[neighbor_cell];
+
+                    for (; q + 8 <= end_idx; q += 8) {
+                        __m256 x_q_vec = _mm256_load_ps(&particles.x[q]);
+                        __m256 y_q_vec = _mm256_load_ps(&particles.y[q]);
+                        __m256 z_q_vec = _mm256_load_ps(&particles.z[q]);
+
+                        int t0 = particles.p_type[q+0], t1 = particles.p_type[q+1];
+                        int t2 = particles.p_type[q+2], t3 = particles.p_type[q+3];
+                        int t4 = particles.p_type[q+4], t5 = particles.p_type[q+5];
+                        int t6 = particles.p_type[q+6], t7 = particles.p_type[q+7];
+
+                        __m256 max_rad_vec = _mm256_setr_ps(
+                            interaction_matrix[type_p][t0].max_radius, interaction_matrix[type_p][t1].max_radius,
+                            interaction_matrix[type_p][t2].max_radius, interaction_matrix[type_p][t3].max_radius,
+                            interaction_matrix[type_p][t4].max_radius, interaction_matrix[type_p][t5].max_radius,
+                            interaction_matrix[type_p][t6].max_radius, interaction_matrix[type_p][t7].max_radius
+                        );
+                        __m256 max_rad_sq = _mm256_mul_ps(max_rad_vec, max_rad_vec);
+
+                        __m256 opt_dist_vec = _mm256_setr_ps(
+                            interaction_matrix[type_p][t0].opt_dist, interaction_matrix[type_p][t1].opt_dist,
+                            interaction_matrix[type_p][t2].opt_dist, interaction_matrix[type_p][t3].opt_dist,
+                            interaction_matrix[type_p][t4].opt_dist, interaction_matrix[type_p][t5].opt_dist,
+                            interaction_matrix[type_p][t6].opt_dist, interaction_matrix[type_p][t7].opt_dist
+                        );
+
+                        __m256 bond_strength_vec = _mm256_setr_ps(
+                            interaction_matrix[type_p][t0].bond_strength, interaction_matrix[type_p][t1].bond_strength,
+                            interaction_matrix[type_p][t2].bond_strength, interaction_matrix[type_p][t3].bond_strength,
+                            interaction_matrix[type_p][t4].bond_strength, interaction_matrix[type_p][t5].bond_strength,
+                            interaction_matrix[type_p][t6].bond_strength, interaction_matrix[type_p][t7].bond_strength
+                        );
+
+                        __m256 dist_x = _mm256_sub_ps(x_p_vec, x_q_vec);
+                        __m256 dist_y = _mm256_sub_ps(y_p_vec, y_q_vec);
+                        __m256 dist_z = _mm256_sub_ps(z_p_vec, z_q_vec);
+
+                        __m256 dist_sq = _mm256_fmadd_ps(dist_z, dist_z,
+                                         _mm256_fmadd_ps(dist_y, dist_y,
+                                         _mm256_mul_ps(dist_x, dist_x)));
+
+                        __m256 skip_mask = _mm256_or_ps(
+                            _mm256_cmp_ps(dist_sq, max_rad_sq, _CMP_GT_OQ),
+                            _mm256_cmp_ps(dist_sq, small_dist, _CMP_LE_OQ)
+                        );
+
+                        __m256 dist_inv = _mm256_rsqrt_ps(dist_sq);
+
+                        __m256 ratio = _mm256_mul_ps(opt_dist_vec, dist_inv);
+                        __m256 force_scalar = _mm256_mul_ps(bond_strength_vec, _mm256_sub_ps(ones, ratio));
+
+                        __m256 force_mult = _mm256_sub_ps(zero, force_scalar);
+                        force_mult = _mm256_blendv_ps(force_mult, zero, skip_mask);
+
+                        fx_acc = _mm256_fmadd_ps(dist_x, force_mult, fx_acc);
+                        fy_acc = _mm256_fmadd_ps(dist_y, force_mult, fy_acc);
+                        fz_acc = _mm256_fmadd_ps(dist_z, force_mult, fz_acc);
+                    }
+
+                    for (; q < end_idx; q++) {
+                        if (p == q) continue;
+
+                        int type_q = particles.p_type[q];
+                        const ForceProfile& profile = interaction_matrix[type_p][type_q];
+
+                        float dist_x = particles.x[p] - particles.x[q];
+                        float dist_y = particles.y[p] - particles.y[q];
+                        float dist_z = particles.z[p] - particles.z[q];
+
+                        float dist_sq = dist_x*dist_x + dist_y*dist_y + dist_z*dist_z;
+                        if (dist_sq > profile.max_radius * profile.max_radius || dist_sq <= 0.00001f) continue;
+
+                        float dist_inv = 1.0f / std::sqrt(dist_sq);
+
+                        float force = -profile.bond_strength * (1.0f - (profile.opt_dist * dist_inv));
+
+                        scalar_fx += dist_x * force;
+                        scalar_fy += dist_y * force;
+                        scalar_fz += dist_z * force;
+                    }
+                }
+            }
+        }
+
+        alignas(32) float f_x_arr[8], f_y_arr[8], f_z_arr[8];
+        _mm256_store_ps(f_x_arr, fx_acc);
+        _mm256_store_ps(f_y_arr, fy_acc);
+        _mm256_store_ps(f_z_arr, fz_acc);
+
+        for (int i = 0; i < 8; ++i) {
+            scalar_fx += f_x_arr[i]; scalar_fy += f_y_arr[i]; scalar_fz += f_z_arr[i];
+        }
+
+        particles.fx[p] = std::clamp(scalar_fx, -5000.0f, 5000.0f);
+        particles.fy[p] = std::clamp(scalar_fy, -5000.0f, 5000.0f);
+        particles.fz[p] = std::clamp(scalar_fz, -5000.0f, 5000.0f);
+    }
 }

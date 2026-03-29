@@ -1,0 +1,20 @@
+# Global Scale Mode: 3 (SUBATOMIC)
+S 3
+
+# Spawn Counts
+C 0 1000  # Up Quarks
+C 1 1000  # Down Quarks
+C 2 1000
+
+# Particle Types: T [ID] [Mass] [Charge] [R] [G] [B] [A]
+T 0  2.16  0.66  1.0 0.1 0.1 1.0  # Up (Red)
+T 1  4.7 -0.33  0.1 0.3 1.0 1.0  # Down (Blue)
+T 2  0.51 -1.0 0.5 0.5 0.5 1.0
+
+# F [TypeA] [TypeB] [Unused] [OptDist] [StringTension] [MaxRadius]
+F 0 0  0.0  0.1  10.0  0.3
+F 1 1  0.0  0.1  10.0  0.3
+F 0 1  0.0  0.1  15.0  0.3
+F 0 2 0.0 0.1 10.0 0.3
+F 1 2 0.0 0.1 15.0 0.3
+F 2 2 0.0 0.1 7.0 0.3

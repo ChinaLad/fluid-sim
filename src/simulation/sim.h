@@ -4,6 +4,8 @@
 #include "particles.h"
 #include "config.h"
 
+#include <immintrin.h>
+
 class Simulation {
 public:
     ScaleMode current_scale = ScaleMode::MESO;
@@ -67,6 +69,44 @@ public:
 
     void applyForces() {
         (this->*computeForcesPtr)();
+
+        // integrate velocities
+        constexpr float DRAG = 0.98f;
+        __m256 drag_vec = _mm256_set1_ps(DRAG);
+        __m256 time_delta_vec = _mm256_set1_ps(TIME_DELTA);
+
+        int p = 0;
+        for(; p+8 <= particles.n_particles; p+=8) {
+            __m256 vx_p_vec = _mm256_load_ps(&particles.vx[p]);
+            __m256 vy_p_vec = _mm256_load_ps(&particles.vy[p]);
+            __m256 vz_p_vec = _mm256_load_ps(&particles.vz[p]);
+
+            __m256 fx_p_vec = _mm256_load_ps(&particles.fx[p]);
+            __m256 fy_p_vec = _mm256_load_ps(&particles.fy[p]);
+            __m256 fz_p_vec = _mm256_load_ps(&particles.fz[p]);
+
+            __m256 mas_inv_vec = _mm256_load_ps(&particles.masses_inv[p]);
+            __m256 temp = _mm256_mul_ps(time_delta_vec, mas_inv_vec);
+
+            vx_p_vec = _mm256_fmadd_ps(fx_p_vec, temp, vx_p_vec);
+            vy_p_vec = _mm256_fmadd_ps(fy_p_vec, temp, vy_p_vec);
+            vz_p_vec = _mm256_fmadd_ps(fz_p_vec, temp, vz_p_vec);
+
+            vx_p_vec = _mm256_mul_ps(drag_vec, vx_p_vec);
+            vy_p_vec = _mm256_mul_ps(drag_vec, vy_p_vec);
+            vz_p_vec = _mm256_mul_ps(drag_vec, vz_p_vec);
+
+            _mm256_store_ps(&particles.vx[p], vx_p_vec);
+            _mm256_store_ps(&particles.vy[p], vy_p_vec);
+            _mm256_store_ps(&particles.vz[p], vz_p_vec);
+        }
+
+        for(; p < particles.n_particles; p++) {
+            float mass_inv = particles.masses_inv[p];
+            particles.vx[p] = (particles.vx[p] + (particles.fx[p] * mass_inv) * TIME_DELTA) * DRAG;
+            particles.vy[p] = (particles.vy[p] + (particles.fy[p] * mass_inv) * TIME_DELTA) * DRAG;
+            particles.vz[p] = (particles.vz[p] + (particles.fz[p] * mass_inv) * TIME_DELTA) * DRAG;
+        }
     }
     void applyGravity();
     void applyAttraction();

@@ -4,13 +4,13 @@
 
 int main() {
     SimulationConfig config;
-    config.loadForceProfile("presets/micro.txt");
+    config.loadForceProfile("presets/quarks.txt");
 
     Particles p{config.n_particles};
 
     p.initParticlesRandomly(config ,3, -3, 3, -3, 3, -3);
 
-    Simulation sim{p, 6, -6, 6, -6, 6, -6};
+    Simulation sim{p, 3, -3, 3, -3, 3, -3};
     sim.applyConfig(config);
     Camera camera{};
     Visualization v{camera, 1000, 1000};
