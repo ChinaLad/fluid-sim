@@ -40,8 +40,14 @@ bool Visualization::initWindow(int width, int height) {
 }
 
 void Visualization::setupGeometry() {
-    float quad[] = { -0.05f, -0.05f,  0.05f, -0.05f,  -0.05f, 0.05f,
-                      0.05f, -0.05f,  0.05f,  0.05f,  -0.05f, 0.05f };
+    float quad[] = {
+        -0.05f, -0.05f,     -1.0f, -1.0f,
+         0.05f, -0.05f,      1.0f, -1.0f,
+        -0.05f,  0.05f,     -1.0f,  1.0f,
+         0.05f, -0.05f,      1.0f, -1.0f,
+         0.05f,  0.05f,      1.0f,  1.0f,
+        -0.05f,  0.05f,      -1.0f,  1.0f
+    };
 
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
@@ -52,19 +58,28 @@ void Visualization::setupGeometry() {
     // base geometry
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
     // instance positions
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 7 * sizeof(float), (void*)0);
-    glVertexAttribDivisor(1, 1);
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 10 * sizeof(float), (void*)0);
+    glVertexAttribDivisor(2, 1);
 
     // instance colors
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_TRUE, 7 * sizeof(float), (void*)(3 * sizeof(float)));
-    glVertexAttribDivisor(2, 1);
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 10 * sizeof(float), (void*)(3 * sizeof(float)));
+    glVertexAttribDivisor(3, 1);
+
+    // instance velocity
+    glEnableVertexAttribArray(4);
+    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 10 * sizeof(float), (void*)(7 * sizeof(float)));
+    glVertexAttribDivisor(4, 1);
 
     glBindVertexArray(0);
 }
@@ -95,16 +110,25 @@ void Visualization::processInput(float deltaTime) {
 }
 
 void Visualization::updateParticles(const Particles& p) {
-    instanceBuffer.resize(p.n_particles * 7);
-    for (int i = 0; i < p.n_particles; ++i) {
-        instanceBuffer[i*7 + 0] = p.x[i];
-        instanceBuffer[i*7 + 1] = p.y[i];
-        instanceBuffer[i*7 + 2] = p.z[i];
+    if (instanceBuffer.size() != p.n_particles * 10) {
+        instanceBuffer.resize(p.n_particles * 10);
+    }
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < p.n_particles; i++) {
+        int idx = i * 10;
 
-        instanceBuffer[i*7 + 3] = p.r[i];
-        instanceBuffer[i*7 + 4] = p.g[i];
-        instanceBuffer[i*7 + 5] = p.b[i];
-        instanceBuffer[i*7 + 6] = p.a[i];
+        instanceBuffer[idx + 0] = p.x[i];
+        instanceBuffer[idx + 1] = p.y[i];
+        instanceBuffer[idx + 2] = p.z[i];
+
+        instanceBuffer[idx + 3] = p.r[i];
+        instanceBuffer[idx + 4] = p.g[i];
+        instanceBuffer[idx + 5] = p.b[i];
+        instanceBuffer[idx + 6] = p.a[i];
+
+        instanceBuffer[idx + 7] = p.vx[i];
+        instanceBuffer[idx + 8] = p.vy[i];
+        instanceBuffer[idx + 9] = p.vz[i];
     }
     glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
     glBufferData(GL_ARRAY_BUFFER, instanceBuffer.size() * sizeof(float), instanceBuffer.data(), GL_DYNAMIC_DRAW);

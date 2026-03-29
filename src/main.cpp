@@ -3,13 +3,15 @@
 #include "visualization/vis.h"
 
 int main() {
-    Particles p{40};
+    SimulationConfig config;
+    config.loadForceProfile("presets/quarks.txt");
 
-    p.initParticlesRandomly(2, -2, 2, -2, 2, -2);
+    Particles p{config.n_particles};
 
-    Simulation sim{p};
-    sim.loadForceProfile("presets/simple.txt");
-    sim.setBoundaries(2, -2, 2, -2, 2, -2);
+    p.initParticlesRandomly(config ,3, -3, 3, -3, 3, -3);
+
+    Simulation sim{p, 3, -3, 3, -3, 3, -3};
+    sim.applyConfig(config);
     Camera camera{};
     Visualization v{camera, 1000, 1000};
 
@@ -18,8 +20,12 @@ int main() {
     v.render(p.n_particles);
     while (!v.shouldClose()) {
         v.processInput(TIME_DELTA);
-        sim.applyForces();
-        sim.updatePositions();
+
+        for (int s = 0; s < SUB_STEPS; s++) {
+            sim.buildGrid();
+            sim.applyForces();
+            sim.updatePositions();
+        }
 
         v.updateParticles(p);
         v.render(p.n_particles);

@@ -1,0 +1,28 @@
+S 2
+
+# Spawn Counts: C [TypeID] [Count]
+C 0 500  # 1000 Oxygen atoms
+C 1 1000  # 2000 Hydrogen atoms
+C 2 300 # Carbon
+
+# Particle Types: T [ID] [Mass] [Charge] [R] [G] [B] [A]
+T 0 16.0 -0.8  1.0 0.2 0.2 1.0  # Oxygen (Red, Heavy, Negative)
+T 1  1.0  0.4  0.9 0.9 1.0 1.0  # Hydrogen (White, Light, Positive)
+T 2 12.0 0.1 0.2 0.2 0.2 1.0
+
+# Force Interactions: F [TypeA] [TypeB] [Coulomb_k] [OptDist] [BondStrength] [MaxRadius]
+
+# O to O: Repel electrostatically (-0.8 * -0.8 = +0.64). Weak hard shell.
+F 0 0  0.5  0.15  0.5  0.4
+
+# H to H: Repel electrostatically (0.4 * 0.4 = +0.16). Weak hard shell.
+F 1 1  0.5  0.08  0.5  0.4
+
+# O to H: Attract electrostatically (-0.8 * 0.4 = -0.32). Strong hard shell at 0.1 dist to form the bond.
+F 0 1  0.5  0.10  5.0  0.4
+
+F 0 2 0.5 0.12 7.0 0.4
+
+F 1 2 0.5 0.11 6.0 0.4
+
+F 2 2 0.5 0.14 8.0 0.4

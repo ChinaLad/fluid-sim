@@ -1,0 +1,7 @@
+# TYPES:    T   [ID]    [Mass]  [R] [G] [B] [A]
+T               0       1.0     1.0 0.8 0.1 1.0
+T               1       0.5     0.1 0.3 1.0 1.0
+
+# FORCES:   F   [TypeA] [TypeB]     [InvSq]     [OptDist]   [Bond]  [MaxRad]
+F               0       1           0.0001      0.3         0.0001  10.0
+F               1       1           0.00001     0.2         0.00005 10.0
