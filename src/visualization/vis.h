@@ -9,7 +9,6 @@
 #include "camera.h"
 #include "shader.h"
 #include "../simulation/particles.h"
-#include "../simulation/params.h"
 
 class Visualization {
 public:

@@ -3,13 +3,15 @@
 #include "visualization/vis.h"
 
 int main() {
-    Particles p{4000};
+    SimulationConfig config;
+    config.loadForceProfile("presets/micro.txt");
 
-    p.initParticlesRandomly(2, -2, 2, -2, 2, -2);
+    Particles p{config.n_particles};
 
-    Simulation sim{p, 4, -4, 4, -4, 4, -4};
-    sim.loadForceProfile("presets/atoms.txt");
-    sim.initTypes();
+    p.initParticlesRandomly(config ,3, -3, 3, -3, 3, -3);
+
+    Simulation sim{p, 6, -6, 6, -6, 6, -6};
+    sim.applyConfig(config);
     Camera camera{};
     Visualization v{camera, 1000, 1000};
 
@@ -19,11 +21,11 @@ int main() {
     while (!v.shouldClose()) {
         v.processInput(TIME_DELTA);
 
-        sim.buildGrid();
-
-        sim.applyForces();
-
-        sim.updatePositions();
+        for (int s = 0; s < SUB_STEPS; s++) {
+            sim.buildGrid();
+            sim.applyForces();
+            sim.updatePositions();
+        }
 
         v.updateParticles(p);
         v.render(p.n_particles);

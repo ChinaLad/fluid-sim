@@ -1,8 +1,10 @@
 #ifndef FLUID_SIM_PARTICLES_H
 #define FLUID_SIM_PARTICLES_H
-#include <cstdlib>
 #include <random>
 #include <new>
+#include <map>
+
+#include "config.h"
 
 class Particles {
 public:
@@ -23,6 +25,8 @@ public:
     float* fx;
     float* fy;
     float* fz;
+
+    float* charges;
 
     float* masses;
     float* masses_inv;
@@ -46,6 +50,7 @@ public:
         fx = nullptr;
         fy = nullptr;
         fz = nullptr;
+        charges = nullptr;
         masses = nullptr;
         masses_inv = nullptr;
         r = nullptr;
@@ -65,6 +70,7 @@ public:
         fx = new (std::align_val_t(32)) float[n]{};
         fy = new (std::align_val_t(32)) float[n]{};
         fz = new (std::align_val_t(32)) float[n]{};
+        charges = new (std::align_val_t(32)) float[n]{};
         masses = new (std::align_val_t(32)) float[n];
         masses_inv = new (std::align_val_t(32)) float[n];
         r = new (std::align_val_t(32)) float[n];
@@ -74,7 +80,7 @@ public:
     }
     ~Particles()= default;
 
-    void initParticlesRandomly(float x_pos_border, float x_neg_border,
+    void initParticlesRandomly(const SimulationConfig& config, float x_pos_border, float x_neg_border,
                            float y_pos_border, float y_neg_border,
                            float z_pos_border, float z_neg_border) {
 
@@ -85,21 +91,31 @@ public:
         std::uniform_real_distribution<float> distY(y_neg_border, y_pos_border);
         std::uniform_real_distribution<float> distZ(z_neg_border, z_pos_border);
 
-        for (int i = 0; i < n_particles; i++) {
-            p_type[i] = 0;
+        int i = 0;
 
-            x[i] = distX(gen);
-            y[i] = distY(gen);
-            z[i] = distZ(gen);
+        for (auto const& [type, count] : config.type_counts) {
+            for (int p = 0; p < count; p++) {
+                p_type[i] = type;
 
-            // Initialize velocities to 0
-            vx[i] = 0.0f;
-            vy[i] = 0.0f;
-            vz[i] = 0.0f;
+                x[i] = distX(gen);
+                y[i] = distY(gen);
+                z[i] = distZ(gen);
 
-            fx[i] = 0.0f;
-            fy[i] = 0.0f;
-            fz[i] = 0.0f;
+                // Initialize velocities to 0
+                vx[i] = 0.0f; vy[i] = 0.0f; vz[i] = 0.0f;
+                fx[i] = 0.0f; fy[i] = 0.0f; fz[i] = 0.0f;
+
+                const float mass = config.type_profiles[type].mass;
+
+                masses[i] = mass;
+                masses_inv[i] = 1.0f/mass;
+                r[i] = config.type_profiles[type].r;
+                g[i] = config.type_profiles[type].g;
+                b[i] = config.type_profiles[type].b;
+                a[i] = config.type_profiles[type].a;
+
+                i++;
+            }
         }
     }
 };

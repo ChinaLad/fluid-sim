@@ -27,6 +27,7 @@ add_executable(fluid_sim
         src/simulation/params.h
         src/visualization/vis.cpp
         src/visualization/vis.h
+        src/simulation/config.h
 )
 
 target_link_libraries(fluid_sim

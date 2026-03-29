@@ -2,30 +2,17 @@
 #define FLUID_SIM_SIM_H
 
 #include "particles.h"
-#include "params.h"
-
-#include <iostream>
-
-struct TypeProfile {
-    float mass = 1.0f;
-    float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
-};
-
-struct ForceProfile {
-    float inv_sq_strength;
-
-    float opt_dist;
-    float bond_strength;
-    float max_radius;
-};
+#include "config.h"
 
 class Simulation {
 public:
-    Particles& particles;
-    Particles sorted_buffer;
+    ScaleMode current_scale = ScaleMode::MESO;
 
     ForceProfile interaction_matrix[NUM_PARTICLE_TYPES][NUM_PARTICLE_TYPES];
     TypeProfile type_profiles[NUM_PARTICLE_TYPES];
+
+    Particles& particles;
+    Particles sorted_buffer;
 
     // grid parameters
     float cell_size;
@@ -50,12 +37,12 @@ public:
     Simulation(Particles& p, float x_pos, float x_neg, float y_pos, float y_neg, float z_pos, float z_neg): particles(p), sorted_buffer(p.n_particles) {
         setBoundaries(x_pos, x_neg, y_pos, y_neg, z_pos, z_neg);
 
-        cell_size = 0.5f;
+        cell_size = 0.2f;
 
         // Assuming your borders start at 0 or are shifted to be positive
-        float sim_width = 4.0f;
-        float sim_height = 4.0f;
-        float sim_depth = 4.0f;
+        float sim_width = x_pos - x_neg;
+        float sim_height = y_pos - y_neg;
+        float sim_depth = z_pos - z_neg;
 
         grid_width = std::ceil(sim_width / cell_size);
         grid_height = std::ceil(sim_height / cell_size);
@@ -78,14 +65,21 @@ public:
 
     void buildGrid();
 
-    void applyForces();
+    void applyForces() {
+        (this->*computeForcesPtr)();
+    }
     void applyGravity();
     void applyAttraction();
     void applyRepulsion();
 
     void updatePositions();
 
-    void loadForceProfile(const std::string& filepath);
-    void initTypes();
+    void applyConfig(const SimulationConfig& config);
+private:
+    void (Simulation::*computeForcesPtr)() = &Simulation::computeMeso;
+    void computeMacro(); // Gravity only
+    void computeMeso();  // Lennard-Jones
+    void computeMicro(); // Electrostatics + Repulsion
+    void computeSubatomic(); // Strong Force
 };
 #endif //FLUID_SIM_SIM_H
