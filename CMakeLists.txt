@@ -11,6 +11,7 @@ set(CMAKE_CXX_FLAGS "-O3 -march=native")
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
+find_package(OpenMP REQUIRED)
 
 include_directories(src)
 
@@ -33,4 +34,5 @@ target_link_libraries(fluid_sim
         OpenGL::GL
         glfw
         rt dl m pthread
+        OpenMP::OpenMP_CXX
 )

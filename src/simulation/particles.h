@@ -100,15 +100,6 @@ public:
             fx[i] = 0.0f;
             fy[i] = 0.0f;
             fz[i] = 0.0f;
-
-            float m = 1.0f;
-            masses[i] = m;
-            masses_inv[i] = 1/m;
-
-            r[i] = 0.0f;
-            g[i] = 0.0f;
-            b[i] = 1.0f;
-            a[i] = 1.0f;
         }
     }
 };

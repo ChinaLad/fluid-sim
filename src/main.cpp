@@ -3,13 +3,13 @@
 #include "visualization/vis.h"
 
 int main() {
-    Particles p{40};
+    Particles p{4000};
 
     p.initParticlesRandomly(2, -2, 2, -2, 2, -2);
 
-    Simulation sim{p};
-    sim.loadForceProfile("presets/simple.txt");
-    sim.setBoundaries(2, -2, 2, -2, 2, -2);
+    Simulation sim{p, 4, -4, 4, -4, 4, -4};
+    sim.loadForceProfile("presets/atoms.txt");
+    sim.initTypes();
     Camera camera{};
     Visualization v{camera, 1000, 1000};
 
@@ -18,7 +18,11 @@ int main() {
     v.render(p.n_particles);
     while (!v.shouldClose()) {
         v.processInput(TIME_DELTA);
+
+        sim.buildGrid();
+
         sim.applyForces();
+
         sim.updatePositions();
 
         v.updateParticles(p);
